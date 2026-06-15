@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Arundhathi Dev | ML Systems</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <style>
+    /* Reset & Base Styles */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    :root {
+      /* Rebalanced Light Palette - Higher intentional contrast */
+      --bg: #FAF9F5;
+      --bg-card: #FFFFFF;
+      --text-main: #0F0E0D;
+      --text-muted: #5C5954;
+      --border: #E6E2DA;
+      
+      /* Vibrant structural accents */
+      --accent-blue: #1A5FC9;
+      --accent-green: #0F6E56;
+      
+      /* Social Link Polishing */
+      --btn-bg: #F1EDE6;
+      --btn-text: #3A3835;
+      --btn-hover: #E8E2D8;
+      
+      /* Badges */
+      --badge-new-bg: #E1F5EE;
+      --badge-new-text: #085041;
+      
+      --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      --sans: 'Space Grotesk', system-ui, sans-serif;
+      --mono: 'IBM Plex Mono', monospace;
+    }
+
+    body {
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.7;
+      color: var(--text-main);
+      background: var(--bg);
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 0 1.5rem 5rem;
+      transition: background-color var(--transition), color var(--transition);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    ::selection { background: var(--text-main); color: var(--bg); }
+
+    /* --- Navigation --- */
+    nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 2.5rem 0 1.5rem;
+    }
+    
+    .nav-name {
+      font-weight: 700;
+      font-size: 1.25rem;
+      color: var(--text-main);
+      text-decoration: none;
+      transition: var(--transition);
+      letter-spacing: -0.03em;
+    }
+    
+    .nav-name:hover { opacity: 0.8; }
+    
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    /* Polished Social Pills */
+    .social-pills {
+      display: flex;
+      gap: 0.5rem;
+      list-style: none;
+    }
+
+    .social-pills a {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+      background: var(--btn-bg);
+      color: var(--btn-text);
+      text-decoration: none;
+      padding: 5px 12px;
+      border-radius: 20px;
+      border: 1px solid transparent;
+      transition: var(--transition);
+    }
+
+    .social-pills a:hover {
+      background: var(--btn-hover);
+      color: var(--text-main);
+      transform: translateY(-1px);
+    }
+
+    /* --- Intro --- */
+    .intro {
+      padding-top: 3.5rem;
+      padding-bottom: 2.5rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2.5rem;
+    }
+    
+    .intro h1 {
+      font-size: clamp(2.2rem, 5vw, 3.2rem);
+      line-height: 1.1;
+      margin-bottom: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+    }
+    
+    .intro p {
+      font-size: 1.05rem;
+      color: var(--text-muted);
+      max-width: 560px;
+      line-height: 1.65;
+    }
+
+    /* --- Sections & Posts --- */
+    .section-block { margin-bottom: 2.5rem; }
+    
+    .section-title {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .post-list { list-style: none; }
+    
+    .post-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 1.5rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      gap: 2rem;
+      margin-bottom: 1rem;
+      transition: var(--transition);
+    }
+    
+    .post-item:hover {
+      border-color: var(--text-muted);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+      transform: translateY(-2px);
+    }
+
+    .post-left {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    
+    .post-tag {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.02em;
+      color: var(--accent-green);
+      font-weight: 500;
+    }
+    
+    .post-title {
+      font-weight: 600;
+      font-size: 1.2rem;
+      color: var(--text-main);
+      text-decoration: none;
+      line-height: 1.35;
+      letter-spacing: -0.02em;
+      transition: var(--transition);
+    }
+    
+    .post-title:hover { color: var(--accent-blue); }
+    
+    .post-desc {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-top: 0.2rem;
+    }
+
+    .post-right {
+      flex-shrink: 0;
+      text-align: right;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.6rem;
+      padding-top: 0.25rem;
+    }
+    
+    .post-date {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    
+    .post-badge {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-weight: 500;
+      text-transform: uppercase;
+    }
+    
+    .badge-new { background: var(--badge-new-bg); color: var(--badge-new-text); }
+
+    /* --- Footer --- */
+    footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 2.5rem 0 1rem;
+      border-top: 1px solid var(--border);
+      margin-top: 4rem;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    
+    footer a {
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: var(--transition);
+    }
+    
+    footer a:hover { color: var(--text-main); }
+    footer div { display: flex; gap: 1.5rem; }
+
+    /* --- Responsive --- */
+    @media (max-width: 600px) {
+      .post-item {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: flex-start;
+        padding: 1.25rem;
+      }
+      .post-right {
+        flex-direction: row;
+        align-items: center;
+        width: 100%;
+        justify-content: space-between;
+        border-top: 1px solid var(--border);
+        padding-top: 0.75rem;
+      }
+      .post-item:hover { transform: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a class="nav-name" href="index.html">Arundhathi Dev</a>
+    <div class="nav-right">
+      <ul class="social-pills">
+        <li><a href="https://github.com/devaru-ai" target="_blank">github</a></li>
+        <li><a href="https://linkedin.com/in/devaru-ai" target="_blank">linkedin</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <header class="intro">
+    <h1>Scaling LLMs:<br>Inference Engineering</h1>
+    <p>Technical analysis of latest LLM inference stacks, design innovations and their core performance bottlenecks.</p>
+  </header>
+
+  <main>
+    <section class="section-block">
+      <span class="section-title">LLM Serving</span>
+      <ul class="post-list">
+        <li class="post-item">
+          <div class="post-left">
+            <span class="post-tag">LLM Serving · Distributed Systems</span>
+            <a class="post-title" href="posts/dynamo.html">NVIDIA Dynamo: A Runtime for Distributed LLM Inference</a>
+            <p class="post-desc">How disaggregated serving, KV-aware routing, and topology-aware scheduling improve LLM serving throughput on NVL72 systems.</p>
+          </div>
+          <div class="post-right">
+            <span class="post-date">May 2026</span>
+            <span class="post-badge badge-new">new</span>
+          </div>
+        </li>
+        <li class="post-item">
+          <div class="post-left">
+            <span class="post-tag">LLM Serving · Frameworks</span>
+            
+            <a class="post-title" href="posts/inference-engines.html">vLLM vs TensorRT-LLM vs SGLang: Comparing LLM Inference Engines</a>
+            <p class="post-desc">How the three dominant serving frameworks handle KV cache, batching, and throughput.</p>
+          </div>
+          <div class="post-right">
+            <span class="post-date">Apr 2026</span>
+            <span class="post-badge badge-new">new</span>
+          </div>
+        </li>
+      </ul>
+    </section>
+    
+    <section class="section-block">
+      <span class="section-title">Scaling</span>
+      <ul class="post-list">
+        <li class="post-item">
+          <div class="post-left">
+            <span class="post-tag">Parallelism · MoE</span>
+            <a class="post-title" href="posts/parallelism-strategies.html">Parallelism Strategies and Mixture-of-Experts in LLM Scaling</a>
+            <p class="post-desc">Tradeoffs in data, tensor, and pipeline parallelism, plus the compute and communication costs of Mixture-of-Experts.</p>
+          </div>
+          <div class="post-right">
+            <span class="post-date">Apr 2026</span>
+            <span class="post-badge badge-new">new</span>
+          </div>
+        </li>
+      </ul>
+    </section>
+    
+    <section class="section-block">
+      <span class="section-title">Inference</span>
+      <ul class="post-list">
+        <li class="post-item">
+          <div class="post-left">
+            <span class="post-tag">LLM Inference · Systems</span>
+            <a class="post-title" href="posts/prefill-to-decode.html">From Prefill to Decode: How LLM Inference Works</a>
+            <p class="post-desc">How LLM inference systems use KV caching, continuous batching, chunked prefill, speculative decoding, and disaggregated serving to improve efficiency and throughput.</p>
+          </div>
+          <div class="post-right">
+            <span class="post-date">Mar 2026</span>
+          </div>
+        </li>
+
+        <li class="post-item">
+          <div class="post-left">
+            <span class="post-tag">KV Cache · Memory</span>
+            <a class="post-title" href="posts/flash-attention-to-paged-attention.html">Attention Compute and KV Cache Allocation in LLM Inference: FlashAttention and PagedAttention</a>
+            <p class="post-desc">FlashAttention optimizes attention compute, while PagedAttention addresses KV cache memory fragmentation in LLM inference systems.</p>
+          </div>
+          <div class="post-right">
+            <span class="post-date">Apr 2026</span>
+            <span class="post-badge badge-new">new</span>
+          </div>
+        </li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    <span>© 2026 A.Dev</span>
+  </footer>
+
+</body>
+</html>

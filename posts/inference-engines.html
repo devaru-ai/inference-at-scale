@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Serving LLMs in Production: vLLM vs TensorRT-LLM vs SGLang</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --ink:#0f0e0d;--ink2:#3a3835;--ink3:#7a7570;
+    --paper:#ffffff;--paper2:#ffffff;--paper3:#ffffff;
+    --accent:#c94a1a;--accent2:#1a5fc9;
+    --border:#d4cdc2;
+  }
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Space Grotesk', system-ui, sans-serif;
+    line-height:1.8;
+    font-size:17px;
+    max-width:800px;
+    margin:0 auto;
+    padding:2rem 1.5rem 5rem;
+  }
+  h1,h2,h3,h4{
+  font-family:'Space Grotesk', system-ui, sans-serif;
+  }
+
+  /* ── Hero ── */
+  .hero{border-bottom:2px solid var(--ink);padding:3rem 0 2.5rem;margin-bottom:3rem}
+  .label{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;letter-spacing:.15em;text-transform:uppercase;
+    color:var(--ink3);margin-bottom:1rem;
+  }
+  h1{
+    font-size:clamp(2rem,5vw,3.2rem);
+    font-weight:700;line-height:1.15;
+    color:var(--ink);margin-bottom:1.5rem;
+  }
+  .hero-sub{font-size:1.15rem;color:var(--ink2);font-style:italic;max-width:620px;line-height:1.7}
+  .hero-meta{
+    margin-top:1.5rem;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11.5px;color:var(--ink3);
+    display:flex;gap:2rem;flex-wrap:wrap;
+  }
+
+  /* ── Table of contents ── */
+  .toc{
+    background:var(--paper2);border:1px solid var(--border);
+    border-radius:4px;padding:1.5rem 1.75rem;margin:2.5rem 0;
+    display:grid;grid-template-columns:1fr 1fr;gap:.35rem 2rem;
+  }
+  .toc-title{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;
+    letter-spacing:.12em;text-transform:uppercase;
+    color:var(--ink3);grid-column:1/-1;margin-bottom:.5rem;
+  }
+  .toc a{
+    font-family:'IBM Plex Mono',monospace;font-size:12.5px;
+    color:var(--ink2);text-decoration:none;
+    display:flex;align-items:baseline;gap:.4rem;
+  }
+  .toc a:hover{color:var(--accent)}
+  .toc-n{color:var(--ink3);min-width:1.2rem}
+
+  /* ── Sections & headings ── */
+  section{margin:3.5rem 0}
+  h2{
+    color:var(--ink);margin-bottom:1.25rem;
+    padding-bottom:.6rem;border-bottom:1px solid var(--border);
+  }
+  h3{
+    color:var(--ink);margin:2rem 0 .75rem;font-style:italic;
+  }
+  p{margin-bottom:1.2rem;color:var(--ink2)}
+  p:last-child{margin-bottom:0}
+  strong{color:var(--ink)}
+
+  /* ── Pull quote ── */
+  .pullquote{
+    border-left:3px solid var(--accent);
+    padding:1rem 1.5rem;margin:2rem 0;
+    background:var(--paper2);
+  }
+  .pullquote p{font-size:1.1rem;font-style:italic;color:var(--ink);margin:0}
+
+  /* ── Callout boxes ── */
+  .callout{
+    border:1px solid var(--border);border-radius:4px;
+    padding:1.25rem 1.5rem;margin:2rem 0;background:var(--paper2);
+  }
+  .callout-label{
+    font-family:'IBM Plex Mono',monospace;font-size:10.5px;
+    letter-spacing:.12em;text-transform:uppercase;
+    color:var(--ink3);margin-bottom:.6rem;
+  }
+  .callout p{margin:0;font-size:.95rem}
+  .callout.warn{border-left:3px solid #c97b1a}
+  .callout.insight{border-left:3px solid var(--accent2)}
+  .callout.danger{border-left:3px solid var(--accent)}
+
+  /* ── Two-col cards ── */
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin:2rem 0}
+  .card{border:1px solid var(--border);border-radius:4px;padding:1.25rem;background:var(--paper)}
+  .card-label{
+    font-family:'IBM Plex Mono',monospace;font-size:10.5px;
+    letter-spacing:.12em;text-transform:uppercase;margin-bottom:.6rem;
+  }
+  .card-label.v{color:#1a5fc9}
+  .card-label.t{color:#2a5a3a}
+  .card-label.s{color:#8a3ac9}
+  .card p{font-size:.92rem;color:var(--ink2);margin:0}
+
+  /* ── Comparison table ── */
+  .compare-table{width:100%;border-collapse:collapse;margin:2rem 0;font-size:.9rem}
+  .compare-table th{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;
+    letter-spacing:.1em;text-transform:uppercase;
+    color:var(--ink3);font-weight:500;text-align:left;
+    padding:.6rem 1rem;border-bottom:2px solid var(--ink);
+    background:var(--paper);
+  }
+  .compare-table td{
+    padding:.75rem 1rem;border-bottom:1px solid var(--border);
+    vertical-align:top;color:var(--ink2);
+  }
+  .compare-table tr:last-child td{border-bottom:none}
+  .compare-table tr:hover td{background:var(--paper2)}
+  .compare-table td:first-child{
+    font-weight:600;color:var(--ink);
+    font-family:'IBM Plex Mono',monospace;font-size:12px;
+  }
+  .badge{
+    display:inline-block;font-family:'IBM Plex Mono',monospace;
+    font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+    padding:2px 7px;border-radius:2px;
+  }
+  .badge.v{background:#ddeeff;color:#185fa5}
+  .badge.t{background:#dff0e4;color:#2a5a3a}
+  .badge.s{background:#eeddff;color:#6a2ab0}
+
+  /* ── Scenario cards ── */
+  .scenario{border:1px solid var(--border);border-radius:4px;margin:1.25rem 0;overflow:hidden}
+  .scenario-header{
+    padding:.75rem 1.25rem;
+    font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:500;
+    display:flex;align-items:center;gap:.6rem;
+  }
+  .scenario-header.v{background:#ddeeff;color:#0c447c}
+  .scenario-header.t{background:#dff0e4;color:#27500a}
+  .scenario-header.s{background:#eeddff;color:#6a2ab0}
+  .scenario-body{padding:1rem 1.25rem;background:var(--paper);font-size:.92rem;color:var(--ink2)}
+  .scenario-body ul{padding-left:1.2rem}
+  .scenario-body li{margin-bottom:.3rem}
+
+  /* ── Failure grid ── */
+  .failure-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:2rem 0}
+  .failure-card{border:1px solid #f0a090;border-radius:4px;padding:1.1rem;background:#fff8f6}
+  .failure-card h4{
+    font-family:'IBM Plex Mono',monospace;font-size:11.5px;
+    color:#a32d2d;margin-bottom:.5rem;
+    text-transform:uppercase;letter-spacing:.08em;
+  }
+  .failure-card p{font-size:.88rem;color:var(--ink2);margin:0}
+
+  /* ── Trends ── */
+  .trend-row{display:flex;align-items:flex-start;gap:1rem;padding:.9rem 0;border-bottom:1px solid var(--border)}
+  .trend-row:last-child{border-bottom:none}
+  .trend-dot{width:8px;height:8px;border-radius:50%;background:var(--accent2);margin-top:.45rem;flex-shrink:0}
+  .trend-row p{font-size:.95rem;color:var(--ink2);margin:0}
+  .trend-row strong{color:var(--ink)}
+
+  /* ── Phase boxes ── */
+  .phase-box{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:2rem 0}
+  .phase{padding:1.25rem;border-radius:4px;border:1px solid var(--border)}
+  .phase.prefill{background:#fff8f0;border-color:#f0c090}
+  .phase.decode{background:#f0f4ff;border-color:#90a8f0}
+  .phase h4{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5rem}
+  .phase.prefill h4{color:#854f0b}
+  .phase.decode h4{color:#185fa5}
+  .phase p{font-size:.9rem;color:var(--ink2);margin:0}
+
+  /* ── Conclusion ── */
+  .conclusion-box{
+    border:2px solid var(--ink);border-radius:4px;
+    padding:2rem;margin:3rem 0;background:var(--paper2);
+  }
+  .conclusion-box p{font-size:1.05rem;color:var(--ink);margin-bottom:1rem}
+  .conclusion-box p:last-child{margin:0;font-style:italic;color:var(--ink3);font-size:.95rem}
+
+  /* ── Footer ── */
+  .footnote{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;
+    color:var(--ink3);border-top:1px solid var(--border);
+    padding-top:1.5rem;margin-top:1rem;
+  }
+
+  /* ── Responsive ── */
+  @media(max-width:580px){
+    .two-col,.failure-grid,.phase-box,.toc{grid-template-columns:1fr}
+    .compare-table{font-size:.8rem}
+    .compare-table th,.compare-table td{padding:.5rem .7rem}
+    body{padding:1.25rem 1rem 3rem}
+  }
+/* Centered Back to Home Navigation Implementation */
+.blog-footer { 
+  border-top: 1px solid var(--border); 
+  padding: 2.5rem 0 1rem; 
+  margin-top: 4rem; 
+  text-align: center; 
+}
+
+.back-home-wrap { 
+  display: flex; 
+  justify-content: center; 
+  width: 100%; 
+  margin-top: 1rem; 
+}
+
+.back-home {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--paper2); /* Matches --btn-bg from your second style */
+  color: var(--ink2);        /* Matches --btn-text */
+  text-decoration: none;
+  padding: 6px 16px;
+  border-radius: 20px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-flex;
+  align-items: center;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.back-home:hover {
+  background: var(--paper3); /* Matches --btn-hover */
+  color: var(--ink);
+  transform: translateY(-1px);
+}
+</style>
+</head>
+<body>
+
+<!-- Hero -->
+<header class="hero">
+  <div class="label">Engineering deep dive · LLM Infrastructure</div>
+  <h1>vLLM vs TensorRT-LLM vs SGLang: Comparing LLM Inference Engines</h1>
+  <p class="hero-sub">How the three dominant serving frameworks handle KV cache, batching, and throughput.</p>
+  <div class="hero-meta">
+    <span>~18 min read</span>
+    <span>System design</span>
+    <span>Production inference</span>
+  </div>
+</header>
+
+<div class="two-col">
+  <div class="card"><div class="card-label v">Latency</div><p>Time-to-first-token and per-token generation speed. The user-facing metric. Bad latency kills products.</p></div>
+  <div class="card"><div class="card-label t">Throughput</div><p>Tokens/sec across all users. The cost metric. Low throughput means expensive GPUs sitting idle.</p></div>
+</div>
+<div class="card" style="margin-bottom:2rem">
+  <div class="card-label s">Memory</div>
+  <p>KV cache dominates GPU memory during inference. It grows with context length and concurrent users — and it's almost always the real bottleneck, not compute.</p>
+</div>
+
+<!-- Section 01 -->
+<section id="inference">
+  <h2>01. What happens during inference</h2>
+
+  <p>
+    LLM generation is typically split into two phases with different compute and memory characteristics. Most serving systems are designed around this separation.
+  </p>
+
+  <div class="phase-box">
+
+    <div class="phase prefill">
+      <h4>Prefill phase</h4>
+      <p>
+        The full prompt is processed in a single forward pass. Computation is parallel across all tokens, making this phase compute-intensive. It produces the first token and initializes the KV cache.
+      </p>
+    </div>
+
+    <div class="phase decode">
+      <h4>Decode phase</h4>
+      <p>
+        Tokens are generated sequentially, one step at a time. Each step requires reading the accumulated KV cache from GPU memory, making this phase primarily memory-bandwidth constrained at scale.
+      </p>
+    </div>
+
+  </div>
+
+
+</section>
+<!-- Section 02 -->
+<section id="kvcache">
+  <h2>02. The primary bottleneck: KV cache</h2>
+
+  <p>
+    During decode, the model requires key and value tensors for all previously generated tokens across layers and attention heads. This persistent state is the KV cache, and it dominates memory usage in most production deployments.
+  </p>
+
+  <p>
+    For a 70B parameter model with a 4096-token context window at 16-bit precision, KV cache consumption for a single request can reach multiple gigabytes of GPU memory. Under concurrency, this scales linearly with active requests.
+  </p>
+
+  <h3>Why it scales quickly</h3>
+
+  <p>
+    KV cache size grows with sequence length, number of layers, attention heads, and head dimension. With long-context models (32K–128K tokens), KV cache becomes a larger memory consumer than model weights in many serving configurations.
+  </p>
+
+  <h3>Limitations of naive allocation</h3>
+
+  <p>
+    Fixed-size preallocation per request leads to three common inefficiencies:
+  </p>
+
+  <p>
+    <strong>Fragmentation:</strong> variable sequence lengths create unusable gaps in memory.<br>
+    <strong>Over-provisioning:</strong> allocation must assume worst-case context length, leaving significant unused capacity.<br>
+    <strong>Early OOM:</strong> memory exhaustion occurs while compute utilization remains relatively low.
+  </p>
+
+  <div class="callout insight">
+    <div class="callout-label">Implication for system design</div>
+    <p>
+      Differences between modern inference frameworks largely stem from how KV cache is allocated, reused, and migrated across memory regions and devices.
+    </p>
+  </div>
+</section>
+
+<!-- Section 03 -->
+<section id="naive">
+  <h2>03. Naive serving baseline</h2>
+
+  <p>
+    Early LLM serving systems used a straightforward execution model: a single request per GPU, static batching, and no KV reuse across requests.
+  </p>
+
+  <p>
+    This approach is adequate for low-scale workloads but breaks down under production concurrency due to poor utilization and redundant computation.
+  </p>
+
+  <p>
+    <strong>Low utilization:</strong> GPUs remain idle during single-request execution.<br>
+    <strong>Static batching latency:</strong> requests wait for batch formation before execution begins.<br>
+    <strong>Repeated computation:</strong> shared prefixes (e.g., system prompts) are recomputed per request.
+  </p>
+
+  <div class="callout warn">
+    <div class="callout-label">Observed behavior</div>
+    <p>
+      A naive 7B model deployment on an A100 typically supports only a small number of concurrent users before latency degrades, primarily due to memory and scheduling inefficiencies rather than compute limits.
+    </p>
+  </div>
+
+  <p>
+    Modern inference frameworks address these limitations through improved KV cache management and dynamic batching strategies.
+  </p>
+</section>
+
+<!-- Section 04 -->
+<section id="vllm">
+  <h2>04. vLLM: paged KV cache execution</h2>
+
+  <p>
+    vLLM introduces a memory management approach inspired by virtual memory systems, applied to KV cache allocation.
+  </p>
+
+  <h3>Paged attention model</h3>
+
+  <p>
+    Instead of allocating a contiguous KV buffer per request, vLLM divides KV cache into fixed-size blocks that can be allocated non-contiguously in GPU memory. A mapping layer tracks logical token positions to physical memory blocks.
+  </p>
+
+  <p>
+    Blocks are allocated incrementally during generation and released immediately after request completion, reducing memory fragmentation.
+  </p>
+
+  <div class="callout insight">
+    <div class="callout-label">Effect on utilization</div>
+    <p>
+      This design significantly reduces fragmentation and improves packing efficiency, enabling higher concurrency under fixed GPU memory limits.
+    </p>
+  </div>
+
+  <h3>Continuous batching</h3>
+
+  <p>
+    vLLM supports dynamic request scheduling where completed requests are replaced immediately without rebuilding static batches. This reduces idle GPU time and increases throughput under variable workloads.
+  </p>
+
+  <h3>Tradeoff profile</h3>
+
+  <p>
+    vLLM prioritizes throughput and flexibility over peak per-request latency optimization. It is well suited to high-concurrency, multi-tenant serving scenarios.
+  </p>
+
+  <div class="callout warn">
+    <div class="callout-label">Constraint</div>
+    <p>
+      It does not apply kernel-level model compilation optimizations, which limits peak latency improvements compared to specialized inference compilers.
+    </p>
+  </div>
+</section>
+
+<!-- Section 05 -->
+<section id="tensorrt">
+  <h2>05. TensorRT-LLM: compiled inference execution</h2>
+
+  <p>
+    TensorRT-LLM focuses on optimizing inference at the kernel and graph level through ahead-of-time compilation for NVIDIA hardware.
+  </p>
+
+  <h3>Optimization mechanisms</h3>
+
+  <p>
+    <strong>Kernel fusion:</strong> multiple sequential operations are combined into single CUDA kernels to reduce memory traffic and launch overhead.<br>
+    <strong>Low-precision execution:</strong> FP8/INT8 execution reduces bandwidth pressure and increases tensor core utilization.<br>
+    <strong>Graph optimization:</strong> static analysis of computation graphs enables scheduling and memory reuse optimizations.
+  </p>
+
+  <h3>Compile-time specialization</h3>
+
+  <p>
+    Models are compiled into optimized engines for specific configurations (architecture, precision, batch size, sequence length). This improves runtime efficiency but introduces a non-trivial build step.
+  </p>
+
+  <div class="callout insight">
+    <div class="callout-label">Performance profile</div>
+    <p>
+      TensorRT-LLM typically provides lower latency in stable, well-defined workloads due to reduced runtime overhead and tighter hardware specialization.
+    </p>
+  </div>
+
+  <div class="callout warn">
+    <div class="callout-label">Constraint</div>
+    <p>
+      Changes in model structure or serving configuration often require recompilation, increasing operational overhead in rapidly evolving environments.
+    </p>
+  </div>
+</section>
+
+<!-- Section 06 -->
+<section id="sglang">
+  <h2>06. SGLang: structured generation and orchestration</h2>
+
+  <p>
+    SGLang targets application-level orchestration of LLM inference rather than low-level execution optimization.
+  </p>
+
+  <h3>Problem scope</h3>
+
+  <p>
+    Many LLM workloads involve multi-step generation pipelines: planning, tool use, validation, and iterative refinement. Managing these workflows directly via API calls introduces latency overhead and coordination complexity.
+  </p>
+
+  <p>
+    SGLang provides structured primitives for composing such workflows while delegating execution and batching to the underlying inference engine.
+  </p>
+
+  <h3>Prefix reuse</h3>
+
+  <p>
+    Through mechanisms such as prefix caching (e.g., Radix-style approaches), SGLang can reuse KV state across requests with shared prefixes, reducing redundant computation in repetitive contexts.
+  </p>
+
+  <div class="callout insight">
+    <div class="callout-label">System role</div>
+    <p>
+      SGLang operates above the inference runtime layer, coordinating structured generation while relying on engines such as vLLM or TensorRT-LLM for token-level execution.
+    </p>
+  </div>
+
+  <div class="callout warn">
+    <div class="callout-label">Constraint</div>
+    <p>
+      Its benefits are most visible in multi-step or agentic workloads; for simple single-turn inference, the additional abstraction provides limited advantage.
+    </p>
+  </div>
+</section>
+
+<!-- Section 07 -->
+<section id="compare">
+  <h2>07. Comparative overview</h2>
+
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th>Dimension</th>
+        <th><span class="badge v">vLLM</span></th>
+        <th><span class="badge t">TensorRT-LLM</span></th>
+        <th><span class="badge s">SGLang</span></th>
+      </tr>
+    </thead>
+
+    <tbody>
+      <tr>
+        <td>Primary focus</td>
+        <td>Throughput and memory efficiency</td>
+        <td>Kernel and graph-level optimization</td>
+        <td>Structured generation and orchestration</td>
+      </tr>
+
+      <tr>
+        <td>Core idea</td>
+        <td>Paged KV cache with continuous batching</td>
+        <td>Compiled inference with fused kernels</td>
+        <td>Declarative multi-step generation with prefix reuse</td>
+      </tr>
+
+      <tr>
+        <td>Throughput</td>
+        <td>High under variable load</td>
+        <td>High under fixed configurations</td>
+        <td>Moderate to high depending on backend</td>
+      </tr>
+
+      <tr>
+        <td>Single-request latency</td>
+        <td>Good</td>
+        <td>Best in optimized configurations</td>
+        <td>Depends on underlying engine</td>
+      </tr>
+
+      <tr>
+        <td>Flexibility</td>
+        <td>High</td>
+        <td>Low (compile-time specialization)</td>
+        <td>High at application layer</td>
+      </tr>
+
+      <tr>
+        <td>Operational complexity</td>
+        <td>Low</td>
+        <td>High</td>
+        <td>Medium</td>
+      </tr>
+
+      <tr>
+        <td>Typical use case</td>
+        <td>Multi-tenant APIs with dynamic traffic</td>
+        <td>Stable, latency-sensitive deployments</td>
+        <td>Agentic or multi-step workflows</td>
+      </tr>
+
+      <tr>
+        <td>Key limitation</td>
+        <td>No deep hardware specialization</td>
+        <td>Rigid deployment and rebuild cycle</td>
+        <td>Requires backend runtime for execution</td>
+      </tr>
+    </tbody>
+  </table>
+
+</section>
+
+
+<!-- Section 08 -->
+<section id="when">
+  <h2>08. Deployment considerations</h2>
+
+  <p>
+    Selection of an inference stack depends primarily on workload structure, latency constraints, and operational constraints rather than model architecture alone.
+  </p>
+
+  <div class="scenario">
+    <div class="scenario-header v">vLLM</div>
+    <div class="scenario-body">
+      <ul>
+        <li>Variable request sizes and high concurrency</li>
+        <li>Multi-tenant serving environments</li>
+        <li>Frequent model iteration or updates</li>
+        <li>Need for standard API compatibility</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="scenario">
+    <div class="scenario-header t">TensorRT-LLM</div>
+    <div class="scenario-body">
+      <ul>
+        <li>Stable model and workload configuration</li>
+        <li>Latency-sensitive applications</li>
+        <li>Predictable batch sizes or sequence lengths</li>
+        <li>Controlled deployment environments</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="scenario">
+    <div class="scenario-header s">SGLang</div>
+    <div class="scenario-body">
+      <ul>
+        <li>Multi-step or agentic generation workflows</li>
+        <li>Structured output or tool integration</li>
+        <li>High prefix reuse across requests</li>
+        <li>Need for orchestration beyond single inference calls</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="pullquote">
+    <p>
+      In practice, systems are often composed rather than selected in isolation, with orchestration, runtime, and execution layers separated across different components.
+    </p>
+  </div>
+</section>
+
+
+<!-- Section 09 -->
+<section id="sysdesign">
+  <h2>09. System design tradeoffs</h2>
+
+  <h3>Throughput vs tail latency</h3>
+  <p>
+    Continuous batching improves GPU utilization by interleaving requests during decode. This increases throughput but introduces variability in per-request latency, particularly in tail percentiles.
+  </p>
+
+  <p>
+    Systems optimized for utilization typically accept higher P99 latency, while systems optimized for latency constrain batching and accept lower hardware efficiency.
+  </p>
+
+  <h3>Memory pressure and admission control</h3>
+  <p>
+    KV cache exhaustion is a primary failure mode under load. Systems typically address this through admission control policies that limit active requests based on available memory and estimated KV usage.
+  </p>
+
+  <p>
+    Alternative strategies include request preemption or offloading KV state to host memory, each introducing different latency and complexity tradeoffs.
+  </p>
+
+  <h3>Context length as a scaling factor</h3>
+  <p>
+    Maximum sequence length directly impacts concurrency. Increasing context length increases KV cache footprint per request, reducing the number of concurrent sessions that can be supported under fixed GPU memory.
+  </p>
+
+  <div class="callout insight">
+    <div class="callout-label">Design implication</div>
+    <p>
+      In production systems, context length is not only a model parameter but also a capacity planning variable that directly determines throughput and memory utilization.
+    </p>
+  </div>
+</section>
+
+
+<!-- Section 10 -->
+<section id="failures">
+  <h2>10. Common failure modes</h2>
+
+  <div class="failure-grid">
+
+    <div class="failure-card">
+      <h4>KV cache exhaustion</h4>
+      <p>
+        Sudden traffic increases can exceed available KV cache memory, leading to allocation failure or OOM events. Mitigation requires admission control and explicit memory budgeting.
+      </p>
+    </div>
+
+    <div class="failure-card">
+      <h4>Batching-induced latency spikes</h4>
+      <p>
+        Mixing long and short requests within batches can increase tail latency. Scheduling policies are required to balance fairness and efficiency.
+      </p>
+    </div>
+
+    <div class="failure-card">
+      <h4>Memory fragmentation</h4>
+      <p>
+        Static KV allocation leads to fragmentation and inefficient memory utilization. Paged allocation strategies reduce but do not eliminate this issue in all cases.
+      </p>
+    </div>
+
+    <div class="failure-card">
+      <h4>Low GPU utilization</h4>
+      <p>
+        Small batch sizes or inefficient scheduling result in underutilized compute resources. Continuous batching and load-aware scheduling are standard mitigations.
+      </p>
+    </div>
+
+    <div class="failure-card">
+      <h4>Engine–model mismatch</h4>
+      <p>
+        Compiled inference engines can become incompatible after model updates if not rebuilt, leading to runtime errors or degraded performance.
+      </p>
+    </div>
+
+    <div class="failure-card">
+      <h4>Stale prefix cache</h4>
+      <p>
+        Cached KV prefixes may become invalid after prompt changes, requiring explicit invalidation to avoid incorrect reuse behavior.
+      </p>
+    </div>
+
+  </div>
+</section>
+
+
+<!-- Section 11 -->
+<section id="trends">
+  <h2>11. Emerging directions</h2>
+
+  <div class="trend-row">
+    <div class="trend-dot"></div>
+    <p>
+      <strong>Speculative decoding:</strong> draft models generate candidate tokens that are verified in parallel by larger models, improving decode throughput in many workloads.
+    </p>
+  </div>
+
+  <div class="trend-row">
+    <div class="trend-dot"></div>
+    <p>
+      <strong>KV cache compression:</strong> reducing KV memory footprint via lower-precision representations is an active area of research with growing production interest.
+    </p>
+  </div>
+
+  <div class="trend-row">
+    <div class="trend-dot"></div>
+    <p>
+      <strong>Disaggregated execution:</strong> separating prefill and decode into different resource pools to better match their distinct compute and memory profiles.
+    </p>
+  </div>
+
+  <div class="trend-row">
+    <div class="trend-dot"></div>
+    <p>
+      <strong>Topology-aware scheduling:</strong> scheduling requests based on GPU interconnect and memory hierarchy characteristics rather than treating hardware as homogeneous.
+    </p>
+  </div>
+</section>
+
+<footer class="footnote">
+  <div class="back-home-wrap">
+  <a href="../index.html" class="back-home">← back to home</a>
+</div>
+</footer>
+
+</body>
+</html>
+
+

@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>NVIDIA Dynamo: A Runtime for Distributed LLM Inference</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    /* Exact style configuration from index.html */
+    --bg: #FFFFFF;
+    --bg-card: #FFFFFF;
+    --text-main: #0F0E0D;
+    --text-muted: #5C5954;
+    --border: #E6E2DA;
+    
+    /* Vibrant structural accents */
+    --accent-blue: #1A5FC9;
+    --accent-green: #0F6E56;
+    
+    /* Social Link / Pill Polishing */
+    --btn-bg: #F1EDE6;
+    --btn-text: #3A3835;
+    --btn-hover: #E8E2D8;
+    
+    /* Badges & Callouts */
+    --badge-new-bg: #E1F5EE;
+    --badge-new-text: #085041;
+    --badge-inter-bg: #EEEDFE;
+    --badge-inter-text: #3C3489;
+    --badge-warn-bg: #FAEEDA;
+    --badge-warn-text: #633806;
+
+    /* ORIGINAL DIAGRAM COLORS PRESERVED SPECIFICALLY */
+    --green: #2d6a4f;
+    --green-light: #d8f3dc;
+    --amber: #b5451b;
+    --amber-light: #fde8dc;
+    --blue: #1a3a5c;
+    --blue-light: #dce8f5;
+    
+    --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    --sans: 'Space Grotesk', system-ui, sans-serif;
+    --mono: 'IBM Plex Mono', monospace;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text-main);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.7;
+    padding: 0 1.5rem 5rem;
+    max-width: 680px;
+    margin: 0 auto; 
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Header ── */
+  .blog-header { padding: 3.5rem 0 2.5rem; border-bottom: 1px solid var(--border); margin-bottom: 2.5rem; }
+  
+  .kicker { 
+    font-family: var(--mono); 
+    font-size: 11px; 
+    letter-spacing: 0.12em; 
+    text-transform: uppercase; 
+    color: var(--green); 
+    margin-bottom: 1.25rem; 
+    display: flex; 
+    align-items: center; 
+    gap: 12px; 
+  }
+  .kicker::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  
+  h1 { font-size: clamp(2.2rem, 5vw, 3.2rem); font-weight: 700; letter-spacing: -0.04em; line-height: 1.1; color: var(--text-main); margin-bottom: 1.25rem; }
+  .subtitle { font-size: 1.15rem; font-weight: 400; color: var(--text-muted); line-height: 1.6; margin-bottom: 1.75rem; }
+  
+  .meta { font-family: var(--mono); font-size: 11px; color: var(--text-muted); display: flex; gap: 24px; letter-spacing: 0.02em; }
+  
+  .tags { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  .tag { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 4px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; font-weight: 500; }
+  .tag-green { background: var(--green-light); color: var(--green); }
+  .tag-amber { background: var(--amber-light); color: var(--amber); }
+  .tag-blue { background: var(--blue-light); color: var(--blue); }
+  
+  /* ── Sections & Typography ── */
+  section { margin-bottom: 3.5rem; }
+  
+  h2 { 
+    font-family: var(--mono); 
+    font-size: 11px; 
+    letter-spacing: 0.12em; 
+    text-transform: uppercase; 
+    color: var(--green); 
+    margin-bottom: 1.5rem; 
+    display: flex; 
+    align-items: center; 
+    gap: 12px; 
+  }
+  h2::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  h2 .num { color: var(--text-muted); font-family: var(--mono); }
+  
+  h3 { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; color: var(--text-main); margin-bottom: 1rem; line-height: 1.3; }
+  h4 { font-size: 14px; font-weight: 700; font-family: var(--mono); color: var(--text-main); margin-bottom: 0.5rem; margin-top: 2rem; letter-spacing: 0.02em; text-transform: uppercase; }
+  
+  p { font-size: 16px; line-height: 1.7; color: var(--text-muted); margin-bottom: 1.2rem; }
+  p strong { color: var(--text-main); font-weight: 600; }
+  
+  code { font-family: var(--mono); font-size: 13px; background: var(--btn-bg); color: var(--green); padding: 2px 5px; border-radius: 4px; }
+  .rule { height: 1px; background: var(--border); margin: 3.5rem 0; }
+  
+  /* ── Structural Callouts ── */
+  .callout { border-left: 2px solid var(--green); padding: 1.25rem 1.5rem; margin: 2rem 0; background: var(--green-light); border-radius: 0 8px 8px 0; }
+  .callout p { margin: 0; font-size: 15px; color: var(--green); font-weight: 400; }
+  .callout strong { color: var(--green) !important; font-weight: 600; }
+  
+  .callout-amber { border-left: 2px solid var(--amber); background: var(--amber-light); }
+  .callout-amber p { color: var(--amber); }
+  .callout-amber strong { color: var(--amber) !important; }
+
+  /* ── Benchmark Core UI ── */
+  .bench-source {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+    margin-bottom: 1.5rem;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .bench-source::before { content: ''; display: inline-block; width: 6px; height: 6px; background: var(--green); border-radius: 50%; flex-shrink: 0; }
+
+  .multiplier-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1rem;
+    margin: 2rem 0;
+  }
+
+  .mult-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem 1rem;
+    text-align: center;
+  }
+
+  .mult-number {
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--green);
+    letter-spacing: -0.04em;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+
+  .mult-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-main);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    line-height: 1.5;
+    font-weight: 500;
+  }
+
+  .mult-context {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 8px;
+    line-height: 1.5;
+  }
+
+  /* Bar chart infrastructure */
+  .bar-chart { margin: 2rem 0; }
+  .bar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  
+  .bar-label {
+    font-family: var(--sans);
+    font-size: 13px;
+    color: var(--text-muted);
+    width: 180px;
+    flex-shrink: 0;
+    text-align: right;
+  }
+  .bar-label strong { color: var(--text-main); font-weight: 600; }
+
+  .bar-track {
+    flex: 1;
+    height: 22px;
+    background: var(--btn-bg);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s ease; }
+  .bar-fill-green { background: rgba(45,106,79,0.55); }
+  .bar-fill-blue  { background: rgba(26,58,92,0.4); }
+  .bar-fill-gray  { background: rgba(100,100,100,0.25); }
+  .bar-fill-amber { background: rgba(181,69,27,0.3); }
+
+  .bar-val { font-family: var(--mono); font-size: 11px; color: var(--text-muted); width: 44px; flex-shrink: 0; }
+  .bar-val strong { color: var(--green); font-weight: 600; }
+
+  /* Structured Tables */
+  .mlperf-table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 13px; }
+  .mlperf-table thead tr { border-bottom: 1px solid var(--border); }
+  .mlperf-table th { text-align: left; padding: 8px 12px 8px 0; color: var(--text-muted); font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; font-weight: 500; font-family: var(--mono); }
+  .mlperf-table td { padding: 10px 12px 10px 0; color: var(--text-muted); border-bottom: 1px solid var(--border); vertical-align: middle; font-family: var(--mono); font-size: 12px; }
+  .mlperf-table tr:last-child td { border-bottom: none; }
+  .mlperf-table td:first-child { color: var(--text-main); font-weight: 600; }
+  .delta { color: var(--green); font-weight: 600; }
+
+  /* Architecture layout map */
+  .arch-diagram { margin: 2rem 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .arch-diagram-header { padding: 10px 16px; border-bottom: 1px solid var(--border); font-family: var(--mono); font-size: 11px; color: var(--text-muted); letter-spacing: 0.02em; display: flex; align-items: center; gap: 8px; }
+  .arch-diagram-header .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); opacity: 0.7; }
+
+  /* Request trace engine layout */
+  .trace { margin: 2rem 0; }
+  .trace-step { display: flex; align-items: flex-start; gap: 14px; padding: 1.25rem 0; border-bottom: 1px solid var(--border); }
+  .trace-step:last-child { border-bottom: none; }
+  .trace-num { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--text-muted); min-width: 20px; }
+  .trace-body { flex: 1; }
+  .trace-title { font-size: 15px; font-weight: 600; color: var(--text-main); margin-bottom: 4px; letter-spacing: -0.01em; }
+  .trace-detail { font-family: var(--sans); font-size: 14px; color: var(--text-muted); line-height: 1.6; }
+  .trace-tag { padding: 2px 7px; border-radius: 4px; font-family: var(--mono); font-size: 10px; font-weight: 500; margin-left: 8px; text-transform: uppercase; }
+
+  /* Hardware map cards */
+  .hw-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 2rem 0; }
+  .hw-card { border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; }
+  .hw-card-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; font-weight: 500; }
+  .hw-card-name { font-size: 1.15rem; font-weight: 600; color: var(--text-main); letter-spacing: -0.01em; margin-bottom: 10px; }
+  .hw-card p { font-size: 13.5px; line-height: 1.6; margin-bottom: 8px; color: var(--text-muted); }
+  .hw-card-stat { font-family: var(--mono); font-size: 11px; color: var(--green); padding: 4px 10px; background: var(--green-light); border-radius: 4px; margin-top: 8px; display: inline-block; font-weight: 500; }
+
+  /* Core comparisons */
+  .sys-compare { display: flex; gap: 1rem; margin: 2rem 0; flex-wrap: wrap; }
+  .sys-pill { border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; flex: 1; min-width: 180px; }
+  .sys-pill-name { color: var(--text-main); font-weight: 600; margin-bottom: 4px; font-size: 15px; }
+  .sys-pill-diff { color: var(--text-muted); font-size: 13.5px; line-height: 1.6; }
+
+  /* Chips production map */
+  .adopter-grid { display: flex; flex-wrap: wrap; gap: 8px; margin: 1.5rem 0; }
+  .adopter-chip { font-family: var(--mono); font-size: 11px; color: var(--btn-text); padding: 4px 12px; background: var(--btn-bg); border-radius: 20px; transition: var(--transition); }
+
+  /* Centered Back to Home Navigation Implementation */
+  .blog-footer { border-top: 1px solid var(--border); padding: 2.5rem 0 1rem; margin-top: 4rem; text-align: center; }
+  .blog-footer p { font-size: 12px; font-family: var(--mono); color: var(--text-muted); line-height: 1.7; text-align: left; margin-bottom: 2.5rem; }
+  .blog-footer a.source-link { color: var(--accent-blue); text-decoration: none; transition: var(--transition); }
+  .blog-footer a.source-link:hover { opacity: 0.8; }
+  
+  .back-home-wrap { display: flex; justify-content: center; width: 100%; margin-top: 1rem; }
+  .back-home {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    background: var(--btn-bg);
+    color: var(--btn-text);
+    text-decoration: none;
+    padding: 6px 16px;
+    border-radius: 20px;
+    transition: var(--transition);
+    display: inline-flex;
+    align-items: center;
+  }
+  .back-home:hover {
+    background: var(--btn-hover);
+    color: var(--text-main);
+    transform: translateY(-1px);
+  }
+  
+  @media (max-width: 600px) {
+    .multiplier-grid, .hw-grid { grid-template-columns: 1fr; }
+    .bar-row { flex-direction: column; align-items: flex-start; gap: 4px; }
+    .bar-label { width: 100%; text-align: left; }
+    .bar-track { width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<div style="padding: 0 2px;">
+
+  <div class="blog-header">
+    <div class="kicker">Systems deep-dive · Dynamo 1.0</div>
+    <h1>NVIDIA Dynamo: A Runtime for Distributed LLM Inference</h1>
+    <p class="subtitle">How disaggregated serving, KV-aware routing, and topology-aware scheduling improve LLM serving throughput on NVL72 systems.</p>
+    <div class="tags">
+      <span class="tag tag-green">NVL72</span>
+      <span class="tag tag-green">Rubin GPUs</span>
+      <span class="tag tag-blue">Vera CPUs</span>
+      <span class="tag tag-amber">DeepSeek-R1</span>
+      <span class="tag tag-amber">MLPerf v5.1</span>
+    </div>
+    <div class="meta">
+      <span>Systems · April 2025 → March 2026</span>
+      <span>~16 min read</span>
+    </div>
+  </div>
+  <section>
+  <h2><span class="num">01 /</span> Why Dynamo Exists</h2>
+
+  <h3>Serving large language models is constrained by memory bandwidth and scheduling</h3>
+
+  <p>
+    In autoregressive inference, a significant portion of latency comes from reading the KV cache from GPU memory at every decoding step. As model sizes grow beyond tens of billions of parameters, the KV cache can exceed the capacity of a single GPU, making interconnect bandwidth and placement decisions critical.
+  </p>
+
+  <p>
+    At typical serving batch sizes, inference is often limited more by memory bandwidth than raw compute. The workload also has two distinct phases: prefill, which processes the input prompt and is compute-heavy, and decode, which generates tokens sequentially and is more memory-bound. Most existing serving systems prior to 2025 execute both phases on the same hardware, which leads to suboptimal utilization for at least one of them.
+  </p>
+
+  <p>
+    Dynamo, introduced at GTC 2025 and reaching 1.0 in March 2026, addresses this by separating prefill and decode into independently scheduled workloads. This allows each phase to be mapped differently across GPUs, taking into account parallelism strategy, memory behavior, and hardware topology.
+  </p>
+  <div class="callout">
+  <p>
+    <strong>Key idea:</strong> Disaggregated serving separates prefill and decode into different compute pools, allowing each stage to be scheduled and scaled independently.
+  </p>
+  </div>
+
+</section>
+
+  <div class="rule"></div>
+
+  <section>
+    <h2><span class="num">02 /</span> Architecture Internals</h2>
+    <h3>Four subsystems that differentiate Dynamo from a traditional serving stack</h3>
+    <div class="arch-diagram">
+      <div class="arch-diagram-header"><div class="dot"></div>dynamo 1.0 — component topology</div>
+      <svg viewBox="0 0 640 310" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </marker>
+        </defs>
+        <rect x="18" y="16" width="604" height="280" rx="10" fill="none" stroke="rgba(45,106,79,0.25)" stroke-width="1" stroke-dasharray="4 3"/>
+        <text x="34" y="35" font-family="'IBM Plex Mono',monospace" font-size="10" fill="rgba(45,106,79,0.65)" letter-spacing="0.08em">DYNAMO RUNTIME</text>
+
+        <rect x="36" y="48" width="130" height="64" rx="6" fill="rgba(45,106,79,0.08)" stroke="rgba(45,106,79,0.35)" stroke-width="0.75"/>
+        <text x="101" y="73" text-anchor="middle" font-family="'Space Grotesk',sans-serif" font-size="12" font-weight="600" fill="var(--color-text-primary)">Smart Router</text>
+        <text x="101" y="90" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="rgba(45,106,79,0.8)">KV-aware routing</text>
+        <text x="101" y="104" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="rgba(45,106,79,0.8)">Prefix cache lookup</text>
+
+        <rect x="192" y="48" width="130" height="64" rx="6" fill="rgba(26,58,92,0.07)" stroke="rgba(26,58,92,0.3)" stroke-width="0.75"/>
+        <text x="257" y="73" text-anchor="middle" font-family="'Space Grotesk',sans-serif" font-size="12" font-weight="600" fill="var(--color-text-primary)">Scheduler</text>
+        <text x="257" y="90" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="rgba(26,58,92,0.7)">Continuous batching</text>
+        <text x="257" y="104" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="rgba(26,58,92,0.7)">SLA-aware autoscale</text>
+
+        <rect x="350" y="48" width="120" height="60" rx="6" fill="rgba(181,69,27,0.07)" stroke="rgba(181,69,27,0.3)" stroke-width="0.75"/>
+        <text x="410" y="72" text-anchor="middle" font-family="'Space Grotesk',sans-serif" font-size="12" font-weight="600" fill="var(--color-text-primary)">Prefill Workers</text>
+        <text x="410" y="88" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="rgba(181,69,27,0.7)">Compute-bound</text>
+        <text x="410" y="102" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="rgba(181,69,27,0.7)">High TP degree</text>
+
+        <rect x="492" y="48" width="120" height="60" rx="6" fill="rgba(181,69,27,0.07)" stroke="rgba(181,69,27,0.3)" stroke-width="0.75"/>
+        <text x="552" y="72" text-anchor="middle" font-family="'Space Grotesk',sans-serif" font-size="12" font-weight="600" fill="var(--color-text-primary)">Decode Workers</text>
+        <text x="552" y="88" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="rgba(181,69,27,0.7)">Memory-bound</text>
+        <text x="552" y="102" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="rgba(181,69,27,0.7)">Wide MoE EP</text>
+
+        <line x1="166" y1="80" x2="190" y2="80" stroke="rgba(100,100,100,0.4)" stroke-width="1" marker-end="url(#arr)"/>
+        <line x1="322" y1="80" x2="348" y2="80" stroke="rgba(100,100,100,0.4)" stroke-width="1" marker-end="url(#arr)"/>
+        <line x1="470" y1="78" x2="490" y2="78" stroke="rgba(45,106,79,0.6)" stroke-width="1.5" marker-end="url(#arr)"/>
+        <text x="480" y="96" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="rgba(45,106,79,0.7)">NIXL KV</text>
+
+        <rect x="36" y="172" width="196" height="64" rx="6" fill="rgba(45,106,79,0.08)" stroke="rgba(45,106,79,0.35)" stroke-width="0.75"/>
+        <text x="134" y="196" text-anchor="middle" font-family="'Space Grotesk',sans-serif" font-size="12" font-weight="600" fill="var(--color-text-primary)">KV Block Manager</text>
+        <text x="134" y="213" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="rgba(45,106,79,0.8)">Paged alloc · Prefix sharing</text>
+        <text x="134" y="228" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="rgba(45,106,79,0.8)">S3/blob KV offload</text>
+
+        <rect x="258" y="172" width="196" height="64" rx="6" fill="rgba(26,58,92,0.07)" stroke="rgba(26,58,92,0.3)" stroke-width="0.75"/>
+        <text x="356" y="196" text-anchor="middle" font-family="'Space Grotesk',sans-serif" font-size="12" font-weight="600" fill="var(--color-text-primary)">AIConfigurator</text>
+        <text x="356" y="213" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="rgba(26,58,92,0.7)">SLO → topology planner</text>
+        <text x="356" y="228" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="rgba(26,58,92,0.7)">Zero-config deploy (DGDR)</text>
+
+        <rect x="480" y="172" width="132" height="64" rx="6" fill="rgba(100,100,100,0.06)" stroke="rgba(100,100,100,0.25)" stroke-width="0.75"/>
+        <text x="546" y="196" text-anchor="middle" font-family="'Space Grotesk',sans-serif" font-size="12" font-weight="600" fill="var(--color-text-primary)">Fault Tolerance</text>
+        <text x="546" y="213" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="rgba(100,100,100,0.7)">Canary health checks</text>
+        <text x="546" y="228" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="rgba(100,100,100,0.7)">Request migration</text>
+
+        <line x1="101" y1="112" x2="101" y2="170" stroke="rgba(45,106,79,0.4)" stroke-width="0.75" stroke-dasharray="3 2" marker-end="url(#arr)"/>
+        <line x1="257" y1="112" x2="280" y2="170" stroke="rgba(100,100,100,0.3)" stroke-width="0.75" stroke-dasharray="3 2" marker-end="url(#arr)"/>
+        <line x1="552" y1="108" x2="546" y2="170" stroke="rgba(100,100,100,0.3)" stroke-width="0.75" stroke-dasharray="3 2" marker-end="url(#arr)"/>
+
+        <text x="320" y="270" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="rgba(100,100,100,0.55)" letter-spacing="0.06em">backends: vLLM · TensorRT-LLM · SGLang · PyTorch</text>
+      </svg>
+    </div>
+
+    <h4>a. Disaggregated Prefill / Decode</h4>
+  <p>
+    The key architectural change is the separation of prefill and decode into distinct GPU pools. Each pool is configured with different parallelism strategies: prefill is compute-bound and typically uses higher tensor parallelism, while decode is memory-bound and benefits from configurations optimized for KV access and MoE routing.
+  </p>
+
+  <p>
+    KV cache state is transferred between pools using NIXL, an asynchronous RDMA-based transport layer for KV movement. This avoids synchronous blocking during handoff between prefill and decode, which would otherwise reduce throughput in a disaggregated setup.
+  </p>
+
+  <h4>b. Smart Router with KV-Aware Routing</h4>
+    <p>
+      The router prioritizes KV cache reuse rather than acting purely as a load balancer. Requests are fingerprinted by prefix, and when a matching cache entry exists, they are directed to a worker with warm KV state. This reduces recomputation of shared prefixes and improves time-to-first-token (TTFT), especially in workloads with repeated system prompts or similar contexts.
+    </p>
+
+    <p>
+      Integration with higher-level orchestration layers allows routing decisions to incorporate cache locality and request-level hints.
+    </p>
+
+    <h4>c. AIConfigurator — Deployment Automation Layer</h4>
+    <p>
+      AIConfigurator takes model specifications, hardware constraints, and SLA targets as input and produces a deployment configuration. It determines GPU partitioning, parallelism degrees, and batch sizing through profiling and heuristic-based optimization.
+    </p>
+
+    <p>
+      The output is a deployable configuration that encodes prefill/decode allocation, tensor and expert parallelism settings, and KV cache capacity planning.
+    </p>
+
+    <h4>d. KV Block Manager with Multi-Tier Offload</h4>
+    <p>
+      KV cache is managed as fixed-size blocks with prefix sharing where possible. Under memory pressure, blocks can be evicted to external storage systems such as object stores and later restored for session continuation.
+    </p>
+
+    <p>
+      This design trades increased reactivation latency for higher effective GPU memory capacity, enabling longer context retention and higher concurrency under constrained hardware budgets.
+    </p>
+    </section>
+  <div class="rule"></div>
+
+  <section>
+    <h2><span class="num">03 /</span> Performance Benchmarks</h2>
+    <h3>NVIDIA, MLPerf, and SemiAnalysis Performance Report</h3>
+
+    <div class="multiplier-grid">
+      <div class="mult-card">
+        <div class="mult-number">7×</div>
+        <div class="mult-label">Throughput vs.<br>no disaggregation</div>
+        <div class="mult-context">GB200 NVL72 + Dynamo disaggregated serving + wide expert parallel. DeepSeek-R1, FP4, 1k/1k tokens. SemiAnalysis InferenceX.</div>
+      </div>
+      <div class="mult-card">
+        <div class="mult-number">30×</div>
+        <div class="mult-label">Request throughput<br>on Blackwell</div>
+        <div class="mult-context">Running DeepSeek-R1 on NVIDIA Blackwell GPUs vs. prior baseline. NVIDIA GTC 2025 announcement figure.</div>
+      </div>
+      <div class="mult-card">
+        <div class="mult-number">50×</div>
+        <div class="mult-label">MoE throughput<br>vs. Hopper</div>
+        <div class="mult-context">GB300 NVL72 + Dynamo vs. Hopper-based systems for MoE models. NVIDIA developer.nvidia.com, March 2026.</div>
+      </div>
+    </div>
+
+    <h4>GB300 NVL72 vs. GB200 NVL72 — MLPerf Inference v5.1 (DeepSeek-R1)</h4>
+
+    <div class="bench-source">MLPerf Inference v5.1 Closed Division. Entry 5.1-0072 (GB300 NVL72), 5.1-0071 (GB200 NVL72). Results from mlcommons.org, verified September 9, 2025.</div>
+
+    <div class="bar-chart">
+      <div class="bar-row">
+        <div class="bar-label"><strong>GB300 NVL72</strong> (Blackwell Ultra)</div>
+        <div class="bar-track"><div class="bar-fill bar-fill-green" style="width:100%"></div></div>
+        <div class="bar-val"><strong>+45%</strong></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">GB200 NVL72 (Blackwell)</div>
+        <div class="bar-track"><div class="bar-fill bar-fill-blue" style="width:69%"></div></div>
+        <div class="bar-val">baseline</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Hopper (H100/H200)</div>
+        <div class="bar-track"><div class="bar-fill bar-fill-gray" style="width:20%"></div></div>
+        <div class="bar-val">~5× lower</div>
+      </div>
+    </div>
+    <p style="font-size:12px; color: var(--text-muted); font-family: var(--mono); margin-top:-8px;">Per-GPU throughput on DeepSeek-R1 offline scenario. GB300 vs GB200: +45% per-GPU (offline), +25% per-GPU (server scenario).</p>
+
+    <h4>Disaggregation impact — SemiAnalysis InferenceX (DeepSeek-R1)</h4>
+
+    <div class="bench-source">SemiAnalysis InferenceX benchmark. DeepSeek R1-0528, FP4, 1k input / 1k output tokens, ~50 tok/sec/user interactivity target. March 3, 2026.</div>
+
+    <div class="bar-chart">
+      <div class="bar-row">
+        <div class="bar-label"><strong>Dynamo + wide EP</strong></div>
+        <div class="bar-track"><div class="bar-fill bar-fill-green" style="width:100%"></div></div>
+        <div class="bar-val"><strong>7× vs no disagg</strong></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">No disaggregation</div>
+        <div class="bar-track"><div class="bar-fill bar-fill-gray" style="width:14%"></div></div>
+        <div class="bar-val">1×</div>
+      </div>
+    </div>
+
+    <h4>ModelExpress startup acceleration</h4>
+    <div class="bar-chart">
+      <div class="bar-row">
+        <div class="bar-label"><strong>ModelExpress (Dynamo 1.0)</strong></div>
+        <div class="bar-track"><div class="bar-fill bar-fill-green" style="width:100%"></div></div>
+        <div class="bar-val"><strong>7× faster</strong></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Standard cold start</div>
+        <div class="bar-track"><div class="bar-fill bar-fill-gray" style="width:14%"></div></div>
+        <div class="bar-val">1×</div>
+      </div>
+    </div>
+    <p style="font-size:12px; color: var(--text-muted); font-family: var(--mono); margin-top:-8px;">ModelExpress uses checkpoint restore + weight streaming over NVLink/NIXL to accelerate worker startup, enabling faster autoscaling response.</p>
+  </section>
+
+  <div class="rule"></div>
+  <section>
+    <h2><span class="num">04 /</span> Hardware Topology</h2>
+    <h3>Why NVL72 is a strong fit for disaggregated LLM inference</h3>
+
+    <div class="hw-grid">
+
+      <div class="hw-card">
+        <div class="hw-card-label">Platform</div>
+        <div class="hw-card-name">NVL72</div>
+
+        <p>
+          NVL72 systems consist of 72 GPUs (GB200/GB300-class) connected via a high-bandwidth NVLink fabric. This topology provides uniform intra-rack communication bandwidth, which is important for disaggregated inference where KV state may be transferred between prefill and decode pools.
+        </p>
+
+        <p>
+          In this setup, scheduling decisions can exploit the NVLink domain to reduce cross-node traffic. KV movement between partitions is handled through a high-throughput transport layer such as NIXL.
+        </p>
+
+        <span class="hw-card-stat">72 GPUs · NVLink fabric · high-bandwidth intra-rack communication</span>
+      </div>
+
+      <div class="hw-card">
+        <div class="hw-card-label">Next Generation</div>
+        <div class="hw-card-name">Rubin GPUs</div>
+
+        <p>
+          Rubin-class GPUs are expected to continue increasing HBM bandwidth and compute throughput relative to prior generations. In disaggregated inference systems, improvements in memory bandwidth typically translate into larger decode batch sizes and improved throughput under memory-bound workloads.
+        </p>
+
+        <span class="hw-card-stat">Higher HBM bandwidth · improved decode scalability</span>
+      </div>
+
+      <div class="hw-card" style="grid-column: 1 / -1;">
+        <div class="hw-card-label">CPU Backend</div>
+        <div class="hw-card-name">Vera CPUs</div>
+
+        <p>
+          In NVL-class systems, CPU-side components handle orchestration tasks such as request routing, tokenization, and KV metadata management. This allows GPUs to remain focused on tensor execution while control-plane work is offloaded.
+        </p>
+
+        <p>
+          Some deployments also explore CPU-side tokenization and pipeline overlap, where CPU preparation of the next batch can run concurrently with GPU execution of the current step, reducing idle time in the inference loop.
+        </p>
+
+        <span class="hw-card-stat">Orchestration · control-plane offload · pipeline overlap</span>
+      </div>
+
+    </div>
+
+  <div class="rule"></div>
+    <section>
+    <h2><span class="num">05 /</span> Request Lifecycle</h2>
+    <h3>How a single request moves through a disaggregated inference system</h3>
+
+    <div class="trace">
+
+      <div class="trace-step">
+        <div class="trace-num">01</div>
+        <div class="trace-body">
+          <div class="trace-title">
+            Admission & Prefix Lookup
+            <span class="trace-tag tag-green" style="background: rgba(45,106,79,0.55); color: #FFFFFF;">router</span>
+          </div>
+          <div class="trace-detail">
+            The request enters the router and is indexed by a prefix hash. If a worker has a matching KV cache entry, the request is routed to reuse that state. On a miss, it is assigned to a prefill worker based on load and capacity.
+          </div>
+        </div>
+      </div>
+
+      <div class="trace-step">
+        <div class="trace-num">02</div>
+        <div class="trace-body">
+          <div class="trace-title">
+            Prefill Execution
+            <span class="trace-tag tag-amber" style="background: rgba(181,69,27,0.3); color: var(--text-main);">prefill pool</span>
+          </div>
+          <div class="trace-detail">
+            The full input sequence is processed in a compute-heavy forward pass. Prefill workers typically run with higher tensor parallelism to maximize throughput. CPU-side components may prepare subsequent requests in parallel with GPU execution.
+          </div>
+        </div>
+      </div>
+
+      <div class="trace-step">
+        <div class="trace-num">03</div>
+        <div class="trace-body">
+          <div class="trace-title">
+            KV State Transfer
+            <span class="trace-tag tag-green" style="background: rgba(45,106,79,0.55); color: #FFFFFF;">NIXL</span>
+          </div>
+          <div class="trace-detail">
+            After the first token is produced, the KV cache state is transferred asynchronously to a decode worker using an RDMA-capable transport layer. This allows the prefill worker to release resources immediately.
+          </div>
+        </div>
+      </div>
+
+      <div class="trace-step">
+        <div class="trace-num">04</div>
+        <div class="trace-body">
+          <div class="trace-title">
+            Decode Loop
+            <span class="trace-tag tag-amber" style="background: rgba(181,69,27,0.3); color: var(--text-main);">decode pool</span>
+          </div>
+          <div class="trace-detail">
+            Autoregressive generation proceeds token by token. Decode workers are optimized for memory-bound execution and may use expert parallelism for MoE models. KV cache is updated incrementally at each step, and tokens are streamed to the client.
+          </div>
+        </div>
+      </div>
+
+      <div class="trace-step">
+        <div class="trace-num">05</div>
+        <div class="trace-body">
+          <div class="trace-title">
+            KV Eviction & Offload
+            <span class="trace-tag tag-blue" style="background: rgba(26,58,92,0.4); color: var(--text-main);">KV Block Manager</span>
+          </div>
+          <div class="trace-detail">
+            When GPU memory pressure increases, KV cache blocks may be evicted to external storage tiers such as object storage. On later resumption, blocks can be reloaded, trading reactivation latency for higher effective memory capacity.
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <div class="rule"></div>
+
+  <section>
+  <h2><span class="num">06 /</span> Positioning vs Existing Systems</h2>
+  <h3>How Dynamo fits into the existing LLM serving stack</h3>
+
+  <div class="sys-compare">
+
+    <div class="sys-pill">
+      <div class="sys-pill-name">vs. vLLM</div>
+      <div class="sys-pill-diff">
+        vLLM introduced paged attention and continuous batching for single-node serving efficiency. Dynamo operates at a higher orchestration layer, coordinating multiple engines and nodes, and can use vLLM as one of its execution backends while adding disaggregated serving and KV-aware routing.
+      </div>
+    </div>
+
+    <div class="sys-pill">
+      <div class="sys-pill-name">vs. TensorRT-LLM</div>
+      <div class="sys-pill-diff">
+        TensorRT-LLM focuses on optimizing individual model execution through graph-level and kernel-level compilation. Dynamo operates above this layer, handling scheduling, routing, and multi-node execution, and can integrate TensorRT-LLM as a backend engine.
+      </div>
+    </div>
+
+    <div class="sys-pill">
+      <div class="sys-pill-name">vs. SGLang</div>
+      <div class="sys-pill-diff">
+        SGLang provides structured generation and KV cache optimization features such as HiCache. Dynamo overlaps in some of these areas but focuses on system-wide orchestration across multiple nodes and workloads, and can interoperate with similar KV transfer mechanisms in distributed setups.
+      </div>
+    </div>
+
+  </div>
+
+  <p>
+   Rather than replacing systems such as vLLM, TensorRT-LLM, or SGLang, it coordinates their execution across nodes with explicit attention to routing, scheduling, and KV cache movement.
+  </p>
+</section>
+
+<div class="rule"></div>
+
+<section>
+  <h2><span class="num">07 /</span> When Dynamo Underperforms</h2>
+  <h3>Practical limits of disaggregated inference systems</h3>
+
+  <p>
+    Disaggregated serving introduces additional overhead from KV transfer between prefill and decode stages. At low request rates or short sequence lengths, a co-located execution model can be more efficient due to reduced communication cost.
+  </p>
+
+  <p>
+    Deployment configuration and profiling can introduce startup latency. This is more suitable for steady-state production workloads than for rapidly changing or cold-start-heavy environments.
+  </p>
+
+  <p>
+    The benefit of KV-aware routing depends on prefix reuse in the workload. If requests are diverse with low prefix overlap, cache hit rates drop and routing behaves closer to standard load balancing without significant acceleration.
+  </p>
+
+  <p>
+    Fault tolerance mechanisms in early versions of distributed inference systems are typically less mature than single-node serving stacks. While production deployments exist, failure recovery paths may still be evolving.
+  </p>
+</section>
+
+
+
+<div class="blog-footer">
+  <p>
+    Benchmark sources:
+    <a class="source-link" href="https://inferencex.semianalysis.com/" target="_blank">SemiAnalysis InferenceX</a> ·
+    <a class="source-link" href="https://mlcommons.org" target="_blank">MLPerf Inference v5.1</a> ·
+    <a class="source-link" href="https://developer.nvidia.com/blog/nvidia-dynamo-1-production-ready/" target="_blank">NVIDIA Technical Blog (March 2026)</a> ·
+    <a class="source-link" href="https://www.vastdata.com/blog/nvidia-dynamo-vast-scalable-optimized-inference" target="_blank">VAST Data KV Offload study</a> ·
+    <a class="source-link" href="https://www.baseten.co/blog/how-baseten-achieved-2x-faster-inference-with-nvidia-dynamo/" target="_blank">Baseten case study</a>
+  </p>
+</div>
+<div class="back-home-wrap">
+      <a href="../index.html" class="back-home">back to home</a>
+    </div>
+</div>
+
+</div>
+</body>
+</html>

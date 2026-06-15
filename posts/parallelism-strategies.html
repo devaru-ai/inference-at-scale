@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Scaling LLMs in Practice — Arundhathi Dev</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#0f0e0d;
+  --ink2:#3a3835;
+  --ink3:#7a7570;
+  --surf:#ffffff;
+  --surf2:#ffffff;
+  --surf3:#ffffff;
+  --border:#d4cdc2;
+  --border2:#bfb8b0;
+  
+  /* Synced button states from index.html */
+  --btn-bg: #F1EDE6;
+  --btn-text: #3A3835;
+  --btn-hover: #E8E2D8;
+
+  /* diagram colors */
+  --dp-fill:#E6F1FB; --dp-stroke:#85B7EB; --dp-text:#0C447C;
+  --tp-fill:#E1F5EE; --tp-stroke:#5DCAA5; --tp-text:#085041;
+  --pp-fill:#FAEEDA; --pp-stroke:#EF9F27; --pp-text:#633806;
+  --moe-fill:#EEEDFE; --moe-stroke:#AFA9EC; --moe-text:#3C3489;
+  --router-fill:#FAEEDA; --router-stroke:#EF9F27; --router-text:#633806;
+  --active-fill:#E1F5EE; --active-stroke:#5DCAA5; --active-text:#085041;
+  --idle-fill:#F1EFE8; --idle-stroke:#B4B2A9; --idle-text:#888780;
+  --warn-fill:#FCEBEB; --warn-stroke:#F09595; --warn-text:#791F1F;
+  
+  --sans: 'Space Grotesk', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+}
+html{scroll-behavior:smooth}
+
+body{font-family:var(--sans);font-size:16px;line-height:1.75;color:var(--ink);background:var(--surf);max-width:800px;margin:0 auto;padding:0 1.5rem 5rem; -webkit-font-smoothing: antialiased;}
+
+/* NAV */
+nav{display:flex;justify-content:space-between;align-items:center;padding:1.25rem 0;border-bottom:0.5px solid var(--border);margin-bottom:0}
+.nav-name{font-family:var(--sans);font-weight:700;font-size:1.25rem;color:var(--ink);text-decoration:none;letter-spacing:-0.03em}
+.nav-name:hover{opacity:0.8}
+.nav-links{list-style:none;display:flex;gap:1.5rem}
+.nav-links a{font-family:var(--mono);font-size:11px;color:var(--ink3);text-decoration:none;letter-spacing:.05em}
+.nav-links a:hover{color:var(--ink)}
+
+/* HERO */
+.post-header{padding:3rem 0 2.5rem;border-bottom:1.5px solid var(--ink)}
+.post-tag{font-family:var(--mono);font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink3);display:block;margin-bottom:1rem}
+.post-header h1{font-family:var(--sans);font-weight:700;font-size:clamp(1.9rem,4.5vw,2.9rem);line-height:1.15;color:var(--ink);margin-bottom:1.25rem;letter-spacing:-0.04em}
+.post-meta{display:flex;gap:1.5rem;font-family:var(--mono);font-size:11.5px;color:var(--ink3)}
+
+/* TOC */
+.toc{margin:2.5rem 0;padding:1.5rem;background:var(--surf2);border-radius:8px;border:0.5px solid var(--border)}
+.toc-head{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);margin-bottom:.75rem}
+.toc-grid{display:grid;grid-template-columns:1fr 1fr;gap:.3rem 2rem}
+.toc a{font-family:var(--mono);font-size:12px;color:var(--ink2);text-decoration:none;display:flex;gap:.5rem}
+.toc a:hover{color:#1a5fc9}
+.toc-n{color:var(--ink3);min-width:1.4rem}
+
+/* BODY */
+.post-body{margin-top:3rem}
+.section-label{font-family:var(--mono);font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink3);margin-bottom:.4rem}
+h2{font-family:var(--sans);font-weight:700;font-size:1.75rem;color:var(--ink);margin-bottom:1.2rem;padding-bottom:.6rem;border-bottom:0.5px solid var(--border);margin-top:3.5rem;letter-spacing:-0.02em}
+h3{font-family:var(--sans);font-size:1rem;font-weight:600;color:var(--ink);margin:1.75rem 0 .6rem;text-transform:uppercase;letter-spacing:.06em}
+p{color:var(--ink2);margin-bottom:1.1rem}
+p:last-child{margin-bottom:0}
+strong{color:var(--ink);font-weight:600}
+em{font-style:italic}
+code{font-family:var(--mono);font-size:.85em;background:var(--surf3);padding:1px 5px;border-radius:3px;color:var(--ink2)}
+ul{padding-left:1.3rem;margin-bottom:1.1rem;color:var(--ink2)}
+ul li{margin-bottom:.4rem}
+.footnote{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;
+    color:var(--ink3);border-top:1px solid var(--border);
+    padding-top:1.5rem;margin-top:4rem;
+  }
+
+/* CALLOUT */
+.callout{background:var(--surf2);border:0.5px solid var(--border);border-left:3px solid var(--border2);border-radius:0 8px 8px 0;padding:1.1rem 1.4rem;margin:1.75rem 0;font-size:.93rem;color:var(--ink2)}
+.callout strong{color:var(--ink)}
+
+/* WARN BOX */
+.warn-box{background:var(--warn-fill);border:0.5px solid var(--warn-stroke);border-radius:8px;padding:1rem 1.25rem;margin:1.1rem 0;font-size:.92rem;color:var(--warn-text)}
+.warn-label{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;color:#A32D2D;font-weight:500}
+
+/* DIAGRAM */
+.diagram-figure{margin:2rem 0}
+.diagram-svg{width:100%;height:auto;display:block}
+figcaption{font-family:var(--mono);font-size:11px;color:var(--ink3);margin-top:.6rem;text-align:center}
+
+/* TABLE */
+.tradeoff-table{width:100%;border-collapse:collapse;margin:2rem 0;font-size:.88rem}
+.tradeoff-table th{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);font-weight:500;padding:.6rem 1rem;border-bottom:1.5px solid var(--ink);text-align:left;background:var(--surf)}
+.tradeoff-table td{padding:.7rem 1rem;border-bottom:0.5px solid var(--border);vertical-align:middle;color:var(--ink2)}
+.tradeoff-table tr:last-child td{border-bottom:none}
+.tradeoff-table tr:hover td{background:var(--surf2)}
+.tradeoff-table td:first-child{font-family:var(--mono);font-size:11.5px;color:var(--ink);font-weight:500}
+.badge{display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:.05em;padding:2px 8px;border-radius:2px}
+.badge-good{background:#E1F5EE;color:#085041}
+.badge-bad{background:#FCEBEB;color:#791F1F}
+.badge-mid{background:#FAEEDA;color:#633806}
+
+/* FOOTER BUTTON SYNC */
+.back-home-wrap { 
+  display: flex; 
+  justify-content: center; 
+  width: 100%; 
+  margin-top: 1rem; 
+}
+
+.back-home {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  text-decoration: none;
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1px solid transparent;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-flex;
+  align-items: center;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.back-home:hover {
+  background: var(--btn-hover);
+  color: var(--ink);
+  transform: translateY(-1px);
+}
+
+footer{display:flex;justify-content:space-between;align-items:center;padding:1.5rem 0;margin-top:1rem;border-top:0.5px solid var(--border);font-family:var(--mono);font-size:11.5px;color:var(--ink3)}
+footer a{color:var(--ink3);text-decoration:none}
+footer a:hover{color:var(--ink)}
+footer div{display:flex;gap:1rem}
+
+/* PULLQUOTE */
+.pullquote{border-left:3px solid #1a5fc9;padding:.9rem 1.4rem;margin:2rem 0}
+.pullquote p{font-family:var(--sans);font-weight:500;font-size:1.15rem;color:var(--ink);margin:0;line-height:1.6}
+
+@media(max-width:540px){
+  .toc-grid{grid-template-columns:1fr}
+  .tradeoff-table th,.tradeoff-table td{padding:.5rem .6rem}
+}
+</style>
+</head>
+<body>
+
+<div class="post-header">
+  <span class="post-tag">LLM Systems · Parallelism · MoE</span>
+  <h1>Parallelism Strategies and Mixture-of-Experts in LLM Scaling</h1>
+  <p>Tradeoffs in data, tensor, and pipeline parallelism, plus the compute and communication costs of Mixture-of-Experts.</p>
+
+  <div class="post-meta">
+    <span>Apr 2026</span>
+    <span>18 min read</span>
+  </div>
+</div>
+
+
+<div class="post-body">
+
+  <h2>01. Why parallelism exists</h2>
+
+<p>The idea that "more GPUs = faster training" stops being true at large scale. The first constraint is not compute — it is memory.</p>
+
+<p>For a 70B parameter model in BF16, weights alone require ~140 GB. During training, optimizer states (e.g., Adam’s first and second moments in FP32) add roughly 2× parameter size, pushing total memory requirements well beyond 700 GB. A single A100 provides 80 GB of HBM, so the model cannot reside on one device.</p>
+
+<p>This creates two operating regimes:</p>
+
+<ul>
+  <li><strong>Memory-bound:</strong> performance is limited by HBM capacity and bandwidth. Compute units stall waiting for data movement.</li>
+  <li><strong>Compute-bound:</strong> arithmetic throughput is the bottleneck. Memory system is saturated but sufficient.</li>
+</ul>
+
+<p>Large batch training trends toward compute-bound execution. Small batches with large models trend toward memory-bound execution. Most real training workloads oscillate between both regimes, which is why parallelism strategy is critical.</p>
+
+<div class="callout">
+  <strong>Core objective of parallelism:</strong> partition model state and computation across devices such that memory fits, compute stays utilized, and communication overhead does not dominate step time.
+</div>
+
+<h2>02. Data parallelism, tensor parallelism, and pipeline parallelism</h2>
+
+<p>Modern distributed training relies on three primary parallelism axes, each addressing a different bottleneck.</p>
+
+<h3>Data parallelism (DP)</h3>
+
+<p>Data parallelism replicates the full model on each GPU and partitions input batches across replicas. After the backward pass, gradients are synchronized using an <code>all-reduce</code> operation. Ring all-reduce is commonly used, where devices exchange partial gradients in a pipelined ring topology.</p>
+
+<p>Communication cost scales as <code>2(N-1)/N × model_size</code> per step. While bandwidth-efficient, gradient synchronization becomes expensive at scale, especially for large parameter counts.</p>
+
+<div class="callout">
+  <strong>DP limitation:</strong> it assumes the model fits on a single device. If it does not, DP alone is insufficient regardless of batch scaling.
+</div>
+
+<h3>Tensor parallelism (TP)</h3>
+
+<p>Tensor parallelism shards individual weight matrices across devices. In transformer feed-forward and attention layers, matrix multiplications are partitioned column-wise and row-wise across GPUs. Each device computes partial results on a subset of weights.</p>
+
+<p>Because partial activations must be combined, TP introduces frequent <code>all-gather</code> and <code>all-reduce</code> operations at nearly every layer. This creates frequent communication between GPUs.</p>
+
+<p>TP performs well within a single node using NVLink (~600 GB/s), but degrades significantly across nodes due to InfiniBand bandwidth constraints (25–400 Gb/s).</p>
+
+<div class="callout">
+  <strong>Practical constraint:</strong> TP is typically bounded by intra-node topology. 8-way TP within a DGX-class node is standard; cross-node TP is usually inefficient.
+</div>
+
+<h3>Pipeline parallelism (PP)</h3>
+
+<p>Pipeline parallelism partitions model depth across devices. Each GPU executes a contiguous block of layers, passing activations forward in sequence.</p>
+
+<p>The key inefficiency is pipeline “bubbles”: devices remain idle while waiting for upstream computation. With <code>k</code> pipeline stages, bubble utilization is <code>(k-1)/k</code>, which becomes severe at shallow microbatching.</p>
+
+<p>Micro-batching mitigates this by splitting input batches into <code>m</code> smaller chunks. This allows overlap of forward and backward passes across stages, reducing bubble overhead to <code>(k-1)/(m+k-1)</code>. The tradeoff is increased activation memory and scheduling complexity.</p>
+  
+  <figure class="diagram-figure">
+    <svg class="diagram-svg" viewBox="0 0 680 210" xmlns="http://www.w3.org/2000/svg">
+
+      <text x="10" y="16" font-family="var(--mono)" font-size="9.5" fill="#7a7570" letter-spacing="0.12em">DATA PARALLELISM</text>
+
+      <rect x="10" y="24" width="78" height="34" rx="3" fill="#E6F1FB" stroke="#85B7EB" stroke-width="1"/>
+      <text x="49" y="38" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="#0C447C">GPU 0</text>
+      <text x="49" y="51" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="#185fa5">batch A</text>
+
+      <rect x="98" y="24" width="78" height="34" rx="3" fill="#E6F1FB" stroke="#85B7EB" stroke-width="1"/>
+      <text x="137" y="38" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="#0C447C">GPU 1</text>
+      <text x="137" y="51" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="#185fa5">batch B</text>
+
+      <rect x="186" y="24" width="78" height="34" rx="3" fill="#E6F1FB" stroke="#85B7EB" stroke-width="1"/>
+      <text x="225" y="38" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="#0C447C">GPU 2</text>
+      <text x="225" y="51" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="#185fa5">batch C</text>
+
+      <line x1="49" y1="68" x2="225" y2="68" stroke="#378ADD" stroke-width="0.75" stroke-dasharray="3,2"/>
+      <text x="137" y="80" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="#185fa5">all-reduce gradients</text>
+
+      <text x="10" y="110" font-family="var(--mono)" font-size="9.5" fill="#7a7570" letter-spacing="0.12em">TENSOR PARALLELISM</text>
+
+      <rect x="10" y="118" width="92" height="34" rx="3" fill="#E1F5EE" stroke="#5DCAA5" stroke-width="1"/>
+      <text x="56" y="132" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="#085041">GPU 0</text>
+      <text x="56" y="144" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="#0F6E56">cols 0–N/2</text>
+
+      <rect x="112" y="118" width="92" height="34" rx="3" fill="#E1F5EE" stroke="#5DCAA5" stroke-width="1"/>
+      <text x="158" y="132" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="#085041">GPU 1</text>
+      <text x="158" y="144" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="#0F6E56">cols N/2–N</text>
+
+      <line x1="204" y1="135" x2="220" y2="135" stroke="#888780" stroke-width="0.75"/>
+      <polygon points="220,132 226,135 220,138" fill="#888780"/>
+
+      <rect x="226" y="118" width="60" height="34" rx="3" fill="#FAEEDA" stroke="#EF9F27" stroke-width="1"/>
+      <text x="256" y="132" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="#633806">merged</text>
+      <text x="256" y="144" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="#854F0B">all-gather</text>
+
+      <text x="340" y="16" font-family="var(--mono)" font-size="9.5" fill="#7a7570" letter-spacing="0.12em">PIPELINE PARALLELISM</text>
+
+      <rect x="340" y="24" width="86" height="34" rx="3" fill="#FAEEDA" stroke="#EF9F27" stroke-width="1"/>
+      <text x="383" y="38" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="#633806">GPU 0</text>
+      <text x="383" y="51" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="#854F0B">layers 1–8</text>
+
+      <line x1="426" y1="41" x2="444" y2="41" stroke="#888780" stroke-width="0.75"/>
+      <polygon points="444,38 450,41 444,44" fill="#888780"/>
+
+      <rect x="450" y="24" width="86" height="34" rx="3" fill="#FAEEDA" stroke="#EF9F27" stroke-width="1"/>
+      <text x="493" y="38" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="#633806">GPU 1</text>
+      <text x="493" y="51" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="#854F0B">layers 9–16</text>
+
+      <line x1="536" y1="41" x2="554" y2="41" stroke="#888780" stroke-width="0.75"/>
+      <polygon points="554,38 560,41 554,44" fill="#888780"/>
+
+      <rect x="560" y="24" width="86" height="34" rx="3" fill="#FAEEDA" stroke="#EF9F27" stroke-width="1"/>
+      <text x="603" y="38" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="#633806">GPU 2</text>
+      <text x="603" y="51" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="#854F0B">layers 17–24</text>
+
+      <text x="340" y="82" font-family="var(--mono)" font-size="9" fill="#7a7570">micro-batch schedule →</text>
+      <rect x="340" y="90" width="38" height="14" rx="2" fill="#BA7517"/>
+      <rect x="382" y="90" width="38" height="14" rx="2" fill="#BA7517" opacity="0.65"/>
+      <rect x="424" y="90" width="38" height="14" rx="2" fill="#BA7517" opacity="0.42"/>
+      <rect x="466" y="90" width="38" height="14" rx="2" fill="#BA7517" opacity="0.22"/>
+      <text x="512" y="101" font-family="var(--mono)" font-size="9" fill="#7a7570">bubble shrinks</text>
+
+      <line x1="10" y1="172" x2="660" y2="172" stroke="#d4cdc2" stroke-width="0.5"/>
+      <text x="10" y="184" font-family="var(--mono)" font-size="9" fill="#7a7570">comm cost — DP: gradient all-reduce (high)  ·  TP: per-layer all-gather (very high)  ·  PP: activation pass only (low)</text>
+    </svg>
+    <figcaption>Three parallelism axes and their communication patterns</figcaption>
+  </figure>
+
+  <h2>03. Hybrid parallelism: what real systems actually do</h2>
+
+<p>No single parallelism strategy scales to 100B+ parameter training. Production systems combine multiple axes, and the setup is usually driven by hardware topology more than algorithmic preference.</p>
+
+<ul>
+  <li><strong>Tensor parallelism (TP) within a node</strong> — NVLink/NVSwitch enables high-bandwidth, low-latency collectives. 8-way TP across 8 GPUs in a DGX-class node is typical.</li>
+  <li><strong>Pipeline parallelism (PP) across nodes</strong> — inter-node bandwidth is significantly lower, so models are split by depth. Only activations are communicated at stage boundaries, making PP relatively communication-efficient over InfiniBand.</li>
+  <li><strong>Data parallelism (DP) across replicas</strong> — full TP+PP partitions are replicated across node groups. Gradients are synchronized via all-reduce, typically overlapped with backward computation to hide latency.</li>
+</ul>
+
+<div class="callout">
+  Frameworks such as Megatron-LM formalize this as 3D parallelism. Each axis (TP, PP, DP) is independently tunable, and the configuration directly determines MFU (model FLOPs utilization), which is the dominant efficiency metric in large-scale training.
+</div>
+
+<h2>04. Why dense models stop scaling — and what MoE changes</h2>
+
+<p>In dense transformers, compute grows with parameter count: every token activates the full parameter set. This makes capacity scaling linearly expensive in FLOPs.</p>
+
+<p>The key observation is conditional computation. Different tokens activate different internal substructures — code, natural language, and math exhibit different latent routing behaviors. This motivates sparse activation.</p>
+
+<p>Mixture-of-Experts (MoE) decouples parameter count from compute by activating only a subset of parameters per token.</p>
+
+<h2>05. MoE: mechanism and failure modes</h2>
+
+<h3>Forward computation</h3>
+
+<p>MoE replaces the feed-forward network in transformer blocks with a set of <em>N</em> expert MLPs plus a routing function. For each token, the router selects top-<em>k</em> experts (typically k=1 or k=2). Only selected experts execute, and outputs are aggregated via a weighted combination.</p>
+
+<p>This enables large parameter counts with bounded per-token compute. For example, a 47B-parameter MoE model may activate only ~13B parameters per token depending on routing policy.</p>
+
+<div class="callout">
+  <strong>Key property:</strong> capacity scales with number of experts, while FLOPs scale with k, not N.
+</div>
+
+<h3>System diagram interpretation</h3>
+
+<figure class="diagram-figure">
+  <svg class="diagram-svg" viewBox="0 0 620 185" xmlns="http://www.w3.org/2000/svg">
+
+    <rect x="10" y="74" width="64" height="34" rx="3" fill="#F1EFE8" stroke="#B4B2A9" stroke-width="1"/>
+    <text x="42" y="88" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="#444441">token</text>
+    <text x="42" y="101" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="#888780">"Paris"</text>
+
+    <line x1="74" y1="91" x2="92" y2="91" stroke="#888780" stroke-width="0.75"/>
+    <polygon points="92,88 98,91 92,94" fill="#888780"/>
+
+    <rect x="98" y="66" width="74" height="50" rx="3" fill="#FAEEDA" stroke="#EF9F27" stroke-width="1"/>
+    <text x="135" y="85" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="#633806">router</text>
+    <text x="135" y="98" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="#854F0B">top-k</text>
+    <text x="135" y="110" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="#854F0B">softmax gating</text>
+
+    <line x1="172" y1="78" x2="240" y2="52" stroke="#BA7517" stroke-width="1.2"/>
+    <polygon points="236,49 243,53 237,57" fill="#BA7517"/>
+    <text x="200" y="62" font-family="var(--mono)" font-size="9" fill="#BA7517">0.6</text>
+
+    <line x1="172" y1="91" x2="240" y2="91" stroke="#BA7517" stroke-width="1.2"/>
+    <polygon points="240,88 246,91 240,94" fill="#BA7517"/>
+    <text x="200" y="86" font-family="var(--mono)" font-size="9" fill="#BA7517">0.3</text>
+
+    <line x1="172" y1="104" x2="240" y2="131" stroke="#B4B2A9" stroke-width="0.75" stroke-dasharray="3,2"/>
+    <text x="196" y="127" font-family="var(--mono)" font-size="9" fill="#B4B2A9">suppressed</text>
+
+    <rect x="246" y="36" width="72" height="30" rx="3" fill="#E1F5EE" stroke="#5DCAA5" stroke-width="1"/>
+    <text x="282" y="50" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="#085041">expert 1</text>
+
+    <rect x="246" y="74" width="72" height="30" rx="3" fill="#E1F5EE" stroke="#5DCAA5" stroke-width="1"/>
+    <text x="282" y="88" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="#085041">expert 2</text>
+
+    <rect x="246" y="114" width="72" height="30" rx="3" fill="#F1EFE8" stroke="#B4B2A9" stroke-width="0.75"/>
+    <text x="282" y="128" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="#B4B2A9">expert 3</text>
+
+    <line x1="318" y1="51" x2="378" y2="83" stroke="#BA7517" stroke-width="0.75"/>
+    <line x1="318" y1="89" x2="378" y2="89" stroke="#BA7517" stroke-width="0.75"/>
+    <polygon points="378,86 384,89 378,92" fill="#BA7517"/>
+
+    <rect x="384" y="72" width="72" height="34" rx="3" fill="#EEEDFE" stroke="#AFA9EC" stroke-width="1"/>
+    <text x="420" y="87" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="#3C3489">merge</text>
+    <text x="420" y="100" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="#534AB7">weighted sum</text>
+
+    <line x1="456" y1="89" x2="476" y2="89" stroke="#888780" stroke-width="0.75"/>
+    <polygon points="476,86 482,89 476,92" fill="#888780"/>
+
+    <rect x="482" y="72" width="72" height="34" rx="3" fill="#F1EFE8" stroke="#B4B2A9" stroke-width="1"/>
+    <text x="518" y="87" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="#444441">output</text>
+    <text x="518" y="100" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="#888780">FFN result</text>
+  </svg>
+  <figcaption>Token-level routing activates only a subset of experts per forward pass</figcaption>
+</figure>
+
+<h3>Failure modes</h3>
+
+<div class="warn-box">
+  <span class="warn-label">load imbalance</span>
+  Router dynamics concentrate traffic on a subset of experts, causing uneven utilization and under-training of the remaining capacity.
+</div>
+
+<div class="warn-box">
+  <span class="warn-label">communication cost</span>
+  Expert placement across devices requires all-to-all token dispatch, which becomes bandwidth-bound at scale and sensitive to latency variance.
+</div>
+
+<div class="warn-box">
+  <span class="warn-label">stragglers</span>
+  Step time is determined by the slowest expert execution path, creating tail latency that reduces overall throughput.
+</div>
+
+<div class="warn-box">
+  <span class="warn-label">routing collapse</span>
+  Without constraints, routing can degenerate into near-single-expert usage, eliminating sparsity benefits and reducing the model effectively to a dense regime.
+</div>
+
+<h2>06. System-level mitigations</h2>
+
+<p>MoE training stability depends on explicit correction mechanisms that counteract routing dynamics and system imbalance.</p>
+
+<p><strong>Load-balancing loss</strong> introduces an auxiliary regularizer that penalizes skewed expert utilization, enforcing entropy in routing distributions.</p>
+
+<p><strong>Capacity constraints</strong> bound per-expert token assignment using a fixed capacity factor. Overflow tokens are dropped or rerouted, trading completeness for bounded compute.</p>
+
+<p><strong>Expert parallelism</strong> distributes experts across devices and makes all-to-all communication the primary synchronization primitive, effectively replacing gradient-centric communication with routing-centric communication.</p>
+
+<p>Together, these mechanisms extend the TP/PP/DP stack with a fourth axis: expert parallelism (EP), completing modern large-scale training systems.</p>
+<h2>07. Dense vs MoE tradeoffs</h2>
+
+  <table class="tradeoff-table">
+    <thead>
+      <tr><th>Aspect</th><th>Dense</th><th>MoE</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Compute per token</td>
+        <td><span class="badge badge-bad">High</span></td>
+        <td><span class="badge badge-good">Lower (sparse)</span></td>
+      </tr>
+      <tr>
+        <td>Memory footprint</td>
+        <td><span class="badge badge-good">Lower</span></td>
+        <td><span class="badge badge-bad">Higher (all experts loaded)</span></td>
+      </tr>
+      <tr>
+        <td>Communication overhead</td>
+        <td><span class="badge badge-good">Lower</span></td>
+        <td><span class="badge badge-bad">Higher (all-to-all)</span></td>
+      </tr>
+      <tr>
+        <td>Training stability</td>
+        <td><span class="badge badge-good">Stable</span></td>
+        <td><span class="badge badge-mid">Needs careful tuning</span></td>
+      </tr>
+      <tr>
+        <td>Serving complexity</td>
+        <td><span class="badge badge-good">Simple</span></td>
+        <td><span class="badge badge-bad">High (expert placement)</span></td>
+      </tr>
+      <tr>
+        <td>Quality per FLOP</td>
+        <td><span class="badge badge-mid">Baseline</span></td>
+        <td><span class="badge badge-good">Better (same compute)</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <strong>When NOT to use MoE:</strong> bandwidth-constrained clusters, latency-sensitive serving (routing overhead adds up), small-scale training (complexity not worth it below ~50B equivalent), or when you lack the engineering bandwidth to tune load balancing carefully.
+  </div>
+
+  <h2>08. Cluster topology and system constraints</h2>
+
+<p>Parallelism design is constrained primarily by hardware topology rather than algorithmic preference. Identical GPU counts can yield materially different optimal configurations depending on interconnect bandwidth and latency characteristics.</p>
+
+<ul>
+  <li><strong>Intra-node interconnect (NVLink / NVSwitch):</strong> ~600 GB/s bidirectional bandwidth with low latency. This makes frequent collective operations (TP all-gathers, reductions) viable. It also allows intra-node expert communication in MoE systems without immediate bandwidth saturation.</li>
+  <li><strong>Inter-node interconnect (InfiniBand):</strong> ~25–400 Gb/s depending on generation and configuration. This is several orders of magnitude slower in effective collective throughput. Tensor parallelism across nodes is typically avoided. Pipeline parallelism is preferred because it minimizes communication frequency and confines transfers to activation boundaries.</li>
+</ul>
+
+<p>MoE systems are especially sensitive to topology. The routing all-to-all introduces quadratic communication patterns across participating devices. If experts are distributed without regard to network locality, routing traffic saturates inter-node links quickly.</p>
+
+<p>As a result, expert placement is a first-order design variable. Production systems frequently co-locate experts that are statistically co-activated to reduce cross-node routing traffic. This transforms routing from a uniform all-to-all into a partially localized exchange pattern.</p>
+
+<div class="callout">
+  <strong>Key structural shift:</strong> dense training is dominated by gradient synchronization (DP all-reduce), while MoE training is dominated by token routing (EP all-to-all). The network bottleneck depends entirely on which regime the system operates in.
+</div>
+
+<h2>09. System composition for large-scale MoE training</h2>
+
+<p>A realistic large-scale configuration (100B+ parameter class MoE) composes all four axes of parallelism simultaneously. Each axis is mapped to a different layer of the hardware hierarchy.</p>
+
+<ul>
+  <li><strong>Tensor parallelism (TP) within nodes:</strong> 8-way sharding across NVLink-connected GPUs. Used for intra-layer matrix multiplication parallelism.</li>
+  <li><strong>Pipeline parallelism (PP) across nodes:</strong> model depth partitioned across node groups. Micro-batching is required to amortize pipeline bubbles.</li>
+  <li><strong>Expert parallelism (EP) across node groups:</strong> experts are distributed across devices; routing triggers all-to-all communication as the dominant inter-node operation.</li>
+  <li><strong>Data parallelism (DP) across replicas:</strong> full TP+PP+EP stacks are replicated, with gradient synchronization via all-reduce overlapping backward computation.</li>
+</ul>
+
+<p>The system combines four different communication patterns: TP is high-frequency intra-node communication, PP is low-frequency sequential activation passing, EP is bursty all-to-all traffic, and DP is periodic global synchronization.</p>
+
+<div class="callout">
+  <strong>MFU sensitivity:</strong> inefficiencies in any single axis reduce overall utilization. A system at 55% MFU versus 40% MFU reflects not just kernel optimization, but global balance across all four communication domains.
+</div>
+
+<p>At this scale, performance differences are bottlenecked by topology alignment rather than algorithmic choice. A poor match between parallelism strategy and network topology can significantly reduce throughput.</p>
+
+<h2>10. Conclusion</h2>
+
+<p>Parallelism exists to decompose memory and compute constraints across devices. MoE extends this by decoupling parameter count from per-token compute, but introduces a more complex communication surface dominated by routing dynamics.</p>
+
+<p>In practice, performance is determined by whether the parallelism strategy matches the underlying hardware topology. When it does, utilization is high. When it does not, local optimizations usually cannot recover the lost throughput.</p>
+
+<footer class="footnote">
+  <div class="back-home-wrap">
+    <a href="../index.html" class="back-home">← back to home</a>
+  </div>
+</footer>
+
+</body>
+</html>
